@@ -1,20 +1,41 @@
 import React from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { Box, CircularProgress } from "@mui/material";
 
-/**
- * <ProtectedRoute roles={['admin','moderator']}>
- */
+// Gestiona: Autenticación, Autorización por Roles y Persistencia de Origen.
+
 export default function ProtectedRoute({ children, roles = [] }) {
-  const { user } = useAuth();
+  const { user, loading, isAuthenticated } = useAuth();
+  const location = useLocation();
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
+  // Retornamos un contenedor centrado para mantener la consistencia visual
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <CircularProgress size={40} thickness={4} />
+      </Box>
+    );
   }
 
-  if (roles.length && !roles.includes(user.role)) {
-    // Si no tiene el rol requerido
-    return <Navigate to="/unauthorized" replace />;
+  // 2. CONTROL DE AUTENTICACIÓN
+  // Usamos isAuthenticated (valor derivado) para mayor claridad semántica
+  if (!isAuthenticated) {
+    // state={{ from: location }} es el estándar
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // 3. CONTROL DE AUTORIZACIÓN (RBAC - Role Based Access Control)
+  if (roles.length > 0) {
+    // Normalización de roles para evitar discrepancias de string
+    const hasRequiredRole = roles.some(role => 
+      user?.role?.toLowerCase() === role.toLowerCase()
+    );
+
+    if (!hasRequiredRole) {
+      // Redirigir a una ruta segura
+      return <Navigate to="/" replace state={{ unauthorized: true }} />;
+    }
   }
 
   return children;
